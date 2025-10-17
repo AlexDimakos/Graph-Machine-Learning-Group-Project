@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 
+import mlflow
+import mlflow.pytorch
 import numpy as np
 import pandas as pd
 import torch
@@ -12,14 +14,15 @@ from torch.utils.data import DataLoader
 # add parent directory of src to Python path
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
-from src.config import *
+import src.config as config
 from src.data.dataset import LSTMDataset
 from src.models.model import LSTMBaseline
+from src.utils.experiments import start_run
 
 
 def evaluate_model(model, dataset, batch_size=64):
     model.eval()
-    model.to(DEVICE)
+    model.to(config.DEVICE)
     criterion = nn.MSELoss()
 
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
@@ -28,8 +31,8 @@ def evaluate_model(model, dataset, batch_size=64):
 
     with torch.no_grad():
         for batch in loader:
-            x = batch["x"].to(DEVICE)
-            y_true = batch["y"].to(DEVICE)
+            x = batch["x"].to(config.DEVICE)
+            y_true = batch["y"].to(config.DEVICE)
             y_pred = model(x)
 
             loss = criterion(y_pred, y_true)
@@ -56,7 +59,7 @@ def train_lstm(
     patience=10,
     save_path="best_model.pt",
 ):
-    model.to(DEVICE)
+    model.to(config.DEVICE)
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
@@ -79,8 +82,8 @@ def train_lstm(
         total_loss = 0.0
 
         for batch in train_loader:
-            x = batch["x"].to(DEVICE)
-            y = batch["y"].to(DEVICE)
+            x = batch["x"].to(config.DEVICE)
+            y = batch["y"].to(config.DEVICE)
 
             optimizer.zero_grad()
             y_pred = model(x)
@@ -93,15 +96,33 @@ def train_lstm(
         avg_train_loss = total_loss / len(train_dataset)
         history["train_loss"].append(avg_train_loss)
 
+        mlflow.log_metric(
+            key="train_loss",
+            value=avg_train_loss,
+            step=epoch,
+        )
+
         # Periodic evaluation
         if val_dataset is not None and epoch % eval_every == 0:
             val_loss, val_rmse, _, _ = evaluate_model(
-                model, val_dataset, LSTMConfig.batch_size
+                model, val_dataset, config.LSTMConfig.batch_size
             )
             history["val_loss"].append(val_loss)
             history["val_rmse"].append(val_rmse)
             print(
                 f"Epoch {epoch}/{num_epochs} | Train Loss: {avg_train_loss:.4f} | Val Loss: {val_loss:.4f} | Val RMSE: {val_rmse:.4f}"
+            )
+
+            # Log to MLFlow
+            mlflow.log_metric(
+                key="val_loss",
+                value=val_loss,
+                step=epoch,
+            )
+            mlflow.log_metric(
+                key="val_rmse",
+                value=val_rmse,
+                step=epoch,
             )
 
             # Early stopping
@@ -173,29 +194,31 @@ def run_lstm_training_pipeline(X_train, y_train, X_val, y_val):
         scale_per_product(X_train, y_train, X_val, y_val)
     )
 
-    train_dataset = LSTMDataset(X_train, y_train, window_size=LSTMConfig.window_size)
-    val_dataset = LSTMDataset(X_val, y_val, window_size=LSTMConfig.window_size)
+    train_dataset = LSTMDataset(
+        X_train, y_train, window_size=config.LSTMConfig.window_size
+    )
+    val_dataset = LSTMDataset(X_val, y_val, window_size=config.LSTMConfig.window_size)
 
     input_size = X_train.shape[2]  # number of features (F)
-    model = LSTMBaseline(input_size, LSTMConfig.hidden_size).to(DEVICE)
+    model = LSTMBaseline(input_size, config.LSTMConfig.hidden_size).to(config.DEVICE)
 
     model, history = train_lstm(
         model,
         train_dataset,
         val_dataset=val_dataset,
-        batch_size=LSTMConfig.batch_size,
-        num_epochs=LSTMConfig.epochs,
-        lr=LSTMConfig.lr,
-        eval_every=LSTMConfig.eval_every,
-        patience=LSTMConfig.patience,
-        save_path=LSTMConfig.save_path,
+        batch_size=config.LSTMConfig.batch_size,
+        num_epochs=config.LSTMConfig.epochs,
+        lr=config.LSTMConfig.lr,
+        eval_every=config.LSTMConfig.eval_every,
+        patience=config.LSTMConfig.patience,
+        save_path=config.LSTMConfig.save_path,
     )
 
     return model, history
 
 
 def cross_validation_training(X, y):
-    tscv = TimeSeriesSplit(n_splits=LSTMConfig.n_splits)
+    tscv = TimeSeriesSplit(n_splits=config.LSTMConfig.n_splits)
     """
     {
         "fold_k": {
@@ -208,37 +231,50 @@ def cross_validation_training(X, y):
     cv_results = {}
 
     for i, (train_idx, val_idx) in enumerate(tscv.split(X)):
-        X_train = X[train_idx]
-        y_train = y[train_idx]
-        X_val = X[val_idx]
-        y_val = y[val_idx]
+        with mlflow.start_run(run_name=f"fold_{i}", nested=True):
+            X_train = X[train_idx]
+            y_train = y[train_idx]
+            X_val = X[val_idx]
+            y_val = y[val_idx]
 
-        model, history = run_lstm_training_pipeline(X_train, y_train, X_val, y_val)
+            model, history = run_lstm_training_pipeline(X_train, y_train, X_val, y_val)
 
-        cv_results[f"fold_{i}"] = {
-            "model": model,
-            "best_val_loss": history["best_val_loss"],
-            "best_val_rmse": history["best_val_rmse"],
-        }
+            mlflow.log_metrics(
+                {
+                    "best_val_loss": history["best_val_loss"],
+                    "best_val_rmse": history["best_val_rmse"],
+                }
+            )
+
+            cv_results[f"fold_{i}"] = {
+                "model": model,
+                "best_val_loss": history["best_val_loss"],
+                "best_val_rmse": history["best_val_rmse"],
+            }
+
+            mlflow.pytorch.log_model(pytorch_model=model, name=model.__class__.__name__)
 
     # TODO: add better processing of results
     # Convert cv_results to a DataFrame
     results_df = pd.DataFrame(cv_results)
 
     # Calculate mean and std of best_val_loss
-    mean_loss = results_df.loc["best_val_rmse"].mean()
-    std_loss = results_df.loc["best_val_rmse"].std()
+    mean_rmse = results_df.loc["best_val_rmse"].mean()
+    std_rmse = results_df.loc["best_val_rmse"].std()
 
-    print(f"Mean best validation rmse: {mean_loss:.4f} ± {std_loss:.4f}")
+    mlflow.log_metrics({"mean_rmse": mean_rmse, "std_rmse": std_rmse})
+
+    print(f"Mean best validation rmse: {mean_rmse:.4f} ± {std_rmse:.4f}")
 
 
 def main():
-    X, y = np.load(PROCESSED_DATA_DIR / "X.npy"), np.load(PROCESSED_DATA_DIR / "y.npy")
-    cross_validation_training(X, y)
-    # print("mpla")
-    # for el in str(Path(__file__).resolve().parents):
-    #     print(el)
-    # # print(str(Path(__file__).resolve().parents))
+    X, y = (
+        np.load(config.PROCESSED_DATA_DIR / "X.npy"),
+        np.load(config.PROCESSED_DATA_DIR / "y.npy"),
+    )
+
+    with start_run(config.MLFlowConfig.run_name):
+        cross_validation_training(X, y)
 
 
 if __name__ == "__main__":
