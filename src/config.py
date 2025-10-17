@@ -14,6 +14,8 @@ PROCESSED_DATA_DIR = DATA_DIR / "processed"
 MODELS_DIR = PROJECT_ROOT / "models"
 MLFLOW_DIR = PROJECT_ROOT / "mlruns"
 
+CONFIG_PATH = PROJECT_ROOT / "src/config.py"
+
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -23,10 +25,10 @@ class LSTMConfig:
     window_size = 10
     batch_size = 64
     hidden_size = 16
-    epochs = 100
+    epochs = 10
     lr = 0.001
     eval_every = 1
-    patience = 10
+    patience = 5
     save_path = MODELS_DIR / "lstm.pt"
 
 

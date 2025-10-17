@@ -3,6 +3,7 @@ from pathlib import Path
 
 import mlflow
 import mlflow.pytorch
+import mlflow.pytorch
 import numpy as np
 import pandas as pd
 import torch
@@ -114,14 +115,11 @@ def train_lstm(
             )
 
             # Log to MLFlow
-            mlflow.log_metric(
-                key="val_loss",
-                value=val_loss,
-                step=epoch,
-            )
-            mlflow.log_metric(
-                key="val_rmse",
-                value=val_rmse,
+            mlflow.log_metrics(
+                {
+                    "val_loss": val_loss,
+                    "val_rmse": val_rmse,
+                },
                 step=epoch,
             )
 
@@ -214,7 +212,7 @@ def run_lstm_training_pipeline(X_train, y_train, X_val, y_val):
         save_path=config.LSTMConfig.save_path,
     )
 
-    return model, history
+    return model, history, train_dataset, val_dataset
 
 
 def cross_validation_training(X, y):
@@ -237,7 +235,9 @@ def cross_validation_training(X, y):
             X_val = X[val_idx]
             y_val = y[val_idx]
 
-            model, history = run_lstm_training_pipeline(X_train, y_train, X_val, y_val)
+            model, history, train_dataset, val_dataset = run_lstm_training_pipeline(
+                X_train, y_train, X_val, y_val
+            )
 
             mlflow.log_metrics(
                 {
@@ -251,8 +251,20 @@ def cross_validation_training(X, y):
                 "best_val_loss": history["best_val_loss"],
                 "best_val_rmse": history["best_val_rmse"],
             }
-
-            mlflow.pytorch.log_model(pytorch_model=model, name=model.__class__.__name__)
+            mlflow
+            mlflow.pytorch.log_model(
+                pytorch_model=model,
+                name=model.__class__.__name__,
+                input_example=next(
+                    iter(
+                        DataLoader(
+                            train_dataset, batch_size=config.LSTMConfig.batch_size
+                        )
+                    )
+                )["x"]
+                .cpu()
+                .numpy(),
+            )
 
     # TODO: add better processing of results
     # Convert cv_results to a DataFrame

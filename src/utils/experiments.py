@@ -13,6 +13,11 @@ def setup_mlflow():
 def start_run(run_name=None):
     if config.USE_MLFLOW:
         setup_mlflow()
-        return mlflow.start_run(run_name=run_name)
+        run_context = mlflow.start_run(run_name=run_name)
+        config_path = config.CONFIG_PATH
+        mlflow.log_artifact(
+            config_path, artifact_path="config", run_id=run_context.info.run_id
+        )
+        return run_context
     else:
         return nullcontext()
