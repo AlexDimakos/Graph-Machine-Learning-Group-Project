@@ -2,7 +2,7 @@ from contextlib import nullcontext
 
 import mlflow
 
-import src.config as config
+import sales_forecasting.config as config
 
 
 def setup_mlflow():

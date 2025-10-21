@@ -1,13 +1,9 @@
-import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-# add parent directory of src to Python path
-sys.path.append(str(Path(__file__).resolve().parents[2]))
-
-from src.config import *
+from sales_forecasting.config import PROCESSED_DATA_DIR, RAW_DATA_DIR
 
 
 def transform_temporal(df, mapping):
@@ -18,7 +14,14 @@ def transform_temporal(df, mapping):
 def main():
     ## Load data
     nodes = pd.read_csv(RAW_DATA_DIR / Path("Nodes/Nodes.csv"))
-    edges = pd.read_csv(RAW_DATA_DIR / Path("Edges/Edges (Product Sub-Group).csv"))
+    edges_plant = pd.read_csv(RAW_DATA_DIR / Path("Edges/Edges (Plant).csv"))
+    edges_group = pd.read_csv(RAW_DATA_DIR / Path("Edges/Edges (Product Group).csv"))
+    edges_subgroup = pd.read_csv(
+        RAW_DATA_DIR / Path("Edges/Edges (Product Sub-Group).csv")
+    )
+    edges_storage = pd.read_csv(
+        RAW_DATA_DIR / Path("Edges/Edges (Storage Location).csv")
+    )
 
     signals_path = RAW_DATA_DIR / Path("Temporal Data/Unit/")
     production = pd.read_csv(signals_path / Path("Production .csv"))
@@ -49,6 +52,19 @@ def main():
 
     np.save(PROCESSED_DATA_DIR / "X", X)
     np.save(PROCESSED_DATA_DIR / "y", y)
+
+    ## Transform the edges
+    edge_list = [edges_plant, edges_group, edges_subgroup, edges_storage]
+    edge_names = ["edges_plant", "edges_group", "edges_subgroup", "edges_storage"]
+    for edges, name in zip(edge_list, edge_names):
+        edges["node1"] = edges["node1"].astype(str)
+        edges["node2"] = edges["node2"].astype(str)
+
+        edges["node1"] = edges["node1"].map(product_to_id)
+        edges["node2"] = edges["node2"].map(product_to_id)
+
+        edge_index = edges[["node1", "node2"]].to_numpy().T.astype(np.int64)
+        np.save(PROCESSED_DATA_DIR / f"{name}", edge_index)
 
 
 if __name__ == "__main__":
