@@ -13,7 +13,6 @@ def transform_temporal(df, mapping):
 
 def main():
     ## Load data
-    nodes = pd.read_csv(RAW_DATA_DIR / Path("Nodes/Nodes.csv"))
     edges_plant = pd.read_csv(RAW_DATA_DIR / Path("Edges/Edges (Plant).csv"))
     edges_group = pd.read_csv(RAW_DATA_DIR / Path("Edges/Edges (Product Group).csv"))
     edges_subgroup = pd.read_csv(
@@ -28,6 +27,11 @@ def main():
     factory_issue = pd.read_csv(signals_path / Path("factory issue.csv"))
     delivery = pd.read_csv(signals_path / Path("Delivery To distributor.csv"))
     sales_order = pd.read_csv(signals_path / Path("Sales order.csv"))
+
+    production.drop(columns=["POP001L12P.1"], inplace=True)
+    delivery.drop(columns=["POP001L12P.1"], inplace=True)
+    sales_order.drop(columns=["POP001L12P.1"], inplace=True)
+    factory_issue.drop(columns=["POP001L12P.1"], inplace=True)
 
     ## Transform the dataframes
     products = [col for col in production.columns if col != "Date"]
@@ -45,6 +49,28 @@ def main():
 
     # shape: [T, N, F] = [time_steps, num_nodes, num_features]
     X = np.stack([X_prod_np, X_issue_np, X_delivery_np, X_sales_np], axis=-1)
+
+    # (a) Mean and std over time + features
+    mean_per_node = X.mean(axis=(0, 2))
+    std_per_node  = X.std(axis=(0, 2))
+
+    # (b) Coefficient of variation (normalized variability)
+    cv_per_node = np.divide(std_per_node, np.abs(mean_per_node) + 1e-8)
+
+    # (c) Zero ratio
+    zero_ratio = (X == 0).mean(axis=(0, 2))
+
+    cv_thr = 0.01        # drop nodes with <1% relative variation
+    zero_thr = 0.6      # drop nodes that are ≥95% zeros
+    mask = (cv_per_node > cv_thr) & (zero_ratio < zero_thr)
+
+    X_filtered = X[:, mask, :]
+    
+    print(f"Removed {(~mask).sum()} of {len(mask)} nodes "f"({(~mask).sum()/len(mask):.1%})")
+    
+    X = X_filtered
+
+    X_sales_np = X[:, :, 3]
 
     # Matching the features at a timestep with their label (the next timestep)
     y = X_sales_np[1:]
