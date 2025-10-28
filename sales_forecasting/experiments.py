@@ -8,6 +8,7 @@ import sales_forecasting.models.train as train_module
 from sales_forecasting.utils.experiments import start_run
 
 
+# TODO: maybe this should take seed as input so that it's reproducible
 def random_search(n_trials: int = 10, param_space: dict | None = None):
     """Run a simple random search over TrainingConfig hyperparameters.
 
@@ -22,7 +23,7 @@ def random_search(n_trials: int = 10, param_space: dict | None = None):
     """
     if param_space is None:
         param_space = {
-            "lr": lambda: 10 ** random.uniform(-4, -2),
+            "lr": lambda: 10 ** random.uniform(-3, -1),
             "batch_size": lambda: random.choice([4, 8, 16, 32]),
             "window_size": lambda: random.choice([3, 5, 10, 20]),
             "hidden_size": lambda: random.choice([4, 8, 16, 32]),
@@ -60,4 +61,4 @@ def random_search(n_trials: int = 10, param_space: dict | None = None):
 
 
 if __name__ == "__main__":
-    random_search()
+    random_search(n_trials=10)
