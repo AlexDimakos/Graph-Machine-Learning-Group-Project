@@ -1,9 +1,9 @@
 import random
 from dataclasses import asdict, replace
 
-import config
 import mlflow
 
+import sales_forecasting.config as config
 import sales_forecasting.models.train as train_module
 from sales_forecasting.utils.experiments import start_run
 

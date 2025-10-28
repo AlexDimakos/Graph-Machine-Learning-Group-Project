@@ -131,3 +131,6 @@ Desktop.ini
 *.db
 *.log
 *.tmp
+# pixi environments
+.pixi/*
+!.pixi/config.toml

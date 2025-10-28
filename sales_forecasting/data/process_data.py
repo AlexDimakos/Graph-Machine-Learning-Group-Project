@@ -24,9 +24,9 @@ def main():
 
     signals_path = RAW_DATA_DIR / Path("Temporal Data/Unit/")
     production = pd.read_csv(signals_path / Path("Production .csv"))
-    factory_issue = pd.read_csv(signals_path / Path("factory issue.csv"))
+    factory_issue = pd.read_csv(signals_path / Path("Factory Issue.csv"))
     delivery = pd.read_csv(signals_path / Path("Delivery To distributor.csv"))
-    sales_order = pd.read_csv(signals_path / Path("Sales order.csv"))
+    sales_order = pd.read_csv(signals_path / Path("Sales Order.csv"))
 
     production.drop(columns=["POP001L12P.1"], inplace=True)
     delivery.drop(columns=["POP001L12P.1"], inplace=True)
