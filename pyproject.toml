@@ -8,13 +8,13 @@ version = "0.1.0"
 description = "Sales orders from supply chain graph"
 requires-python = ">=3.10"
 dependencies = [
-    "torch-geometric",
+    "torch-geometric>=2.7.0",
     "pyg-lib",
     "torch-scatter",
     "torch-sparse",
     "torch-cluster",
     "torch-spline-conv",
-    "torch-geometric-temporal",
+    "ipykernel",
 ]
 
 [tool.setuptools.packages.find]
@@ -33,6 +33,7 @@ find-links = [{ url = 'https://data.pyg.org/whl/torch-2.8.0+cu128.html' }]
 sales-forecasting = { path = ".", editable = true }
 torch = { version = "==2.8.0", index = "https://download.pytorch.org/whl/cu128" }
 torchvision = { version = "*", index = "https://download.pytorch.org/whl/cu128" }
+torch-geometric-temporal = { git = "https://github.com/benedekrozemberczki/pytorch_geometric_temporal.git" }
 
 [tool.pixi.system-requirements]
 cuda = "12.8"

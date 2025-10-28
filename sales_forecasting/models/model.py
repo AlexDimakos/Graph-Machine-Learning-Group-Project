@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch_geometric.nn
 from torch_geometric_temporal.nn.recurrent import GConvLSTM
 
 
@@ -34,6 +35,39 @@ class GCNLSTMBaseline(nn.Module):
             # Pass previous hidden states (if any)
             h, c = self.gcnlstm(
                 x[t, :, :], edge_index[t, :, :], edge_weight[t, :], h, c
+            )
+        out = self.linear(h)
+        return out.squeeze(-1), (h, c)
+
+
+class GATGCNLSTM(nn.Module):
+    def __init__(self, input_size, hidden_size, K=1):
+        super().__init__()
+        self.gat = torch_geometric.nn.conv.GATv2Conv(
+            in_channels=input_size,
+            out_channels=input_size,
+        )
+        self.gcnlstm = GConvLSTM(in_channels=input_size, out_channels=hidden_size, K=K)
+        self.linear = nn.Linear(hidden_size, 1)
+
+    def forward(self, x, edge_index, edge_weight, h=None, c=None):
+        # x: [window_size, N, F]
+        # edge_index: [window_size, 2, E]
+        # edge_weight: [window_size, E]
+        # h: [N, hidden_size]
+        # c: [N, hidden_size]
+
+        window_size, N, F = x.shape
+        for t in range(window_size):
+            # Apply GAT to get edge weights
+            (_, (e_index, attention_weights)) = self.gat(
+                x=x[t, :, :],
+                edge_index=edge_index[t, :, :],
+                return_attention_weights=True,
+            )
+            # Pass previous hidden states (if any)
+            h, c = self.gcnlstm(
+                x[t, :, :], e_index, attention_weights.squeeze(-1), h, c
             )
         out = self.linear(h)
         return out.squeeze(-1), (h, c)
