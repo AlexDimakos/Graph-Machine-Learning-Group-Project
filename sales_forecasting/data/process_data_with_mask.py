@@ -62,11 +62,11 @@ def main():
     zero_ratio = (X == 0).mean(axis=(0, 2))
 
     cv_thr = 0.01  # drop nodes with <1% relative variation
-    zero_thr = 0.6  # drop nodes that are ≥95% zeros
+    zero_thr = 0.85  # drop nodes that are ≥85% zeros
     mask = (cv_per_node > cv_thr) & (zero_ratio < zero_thr)
 
     print(
-        f"Mask contains {(~mask).sum()} of {len(mask)} nodes "
+        f"Mask covers {(~mask).sum()} of {len(mask)} nodes "
         f"({(~mask).sum() / len(mask):.1%})"
     )
 
@@ -88,8 +88,30 @@ def main():
         edges["node1"] = edges["node1"].map(product_to_id)
         edges["node2"] = edges["node2"].map(product_to_id)
 
+        # ! There are pairs of the same nodes being connected by multiple edges of the same type (e.g. multiple plants)
+        # Group by node pairs and sum the quantities
+        edges = edges.copy()
+        edges["pair"] = edges[["node1", "node2"]].apply(
+            lambda x: tuple(sorted(x)), axis=1
+        )
+        edges = edges.groupby("pair").size().reset_index(name="multiplicity")
+        edges[["node1", "node2"]] = pd.DataFrame(
+            edges["pair"].tolist(), index=edges.index
+        )
+        edges.drop(columns="pair", inplace=True)
+        # Just reorder to have the edge first and then the multiplicity
+        edges = edges[["node1", "node2", "multiplicity"]]
+
+        unique_edges_count = edges.shape[0]
+        print(
+            f"Number of unique edges of type {name.split('_')[1]}: {unique_edges_count}"
+        )
+
         edge_index = edges[["node1", "node2"]].to_numpy().T.astype(np.int64)
         np.save(PROCESSED_DATA_DIR / f"{name}", edge_index)
+
+        edge_index_weighted = edges.to_numpy().T.astype(np.int64)
+        np.save(PROCESSED_DATA_DIR / f"{name}_weighted", edge_index_weighted)
 
 
 if __name__ == "__main__":
