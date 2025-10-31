@@ -17,7 +17,7 @@ CONFIG_PATH = Path(__file__)
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # choose from ['lstm', 'gcnlstm', 'gatgcnlstm', 'gcngru']
-MODEL = "gcngru"
+MODEL = "gatgcnlstm"
 # choose from ['plant', 'group', 'subgroup', 'storage']
 EDGE_TYPE = "plant"
 
@@ -25,20 +25,20 @@ EDGE_TYPE = "plant"
 @dataclass
 class TrainingConfig:
     # Cross-validation folds
-    n_splits: int = 3
+    n_splits: int = 4
 
     # Model parameters
     window_size: int = 6
     hidden_size: int = 8
     K: int = 2
-    dropout: float = 0.25
-    num_layers: int = 2
+    dropout: float = 0
+    num_layers: int = 1
 
     # Training loop parameters
     batch_size: int = 8
     epochs: int = 100
-    lr: float = 0.002
-    weight_decay: float = 0.001
+    lr: float = 0.001
+    weight_decay: float = 0.0005
 
     # Evaluation parameters
     eval_every: int = 1

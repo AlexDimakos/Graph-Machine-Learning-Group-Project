@@ -24,10 +24,10 @@ def random_search(n_trials: int = 10, param_space: dict | None = None):
     if param_space is None:
         param_space = {
             "lr": lambda: 10 ** random.uniform(-3, -1),
-            "batch_size": lambda: random.choice([4, 8, 16, 32]),
-            "window_size": lambda: random.choice([3, 5, 10, 20]),
-            "hidden_size": lambda: random.choice([4, 8, 16, 32]),
-            "K": lambda: random.choice([1, 2, 3]),
+            "window_size": lambda: random.choice([3, 4, 6, 8]),
+            "hidden_size": lambda: random.choice([4, 8, 12, 16]),
+            "K": lambda: random.choice([1, 2]),
+            "weight_decay": lambda: 10 ** random.uniform(-6, -3),
         }
 
     for i in range(n_trials):
@@ -61,4 +61,4 @@ def random_search(n_trials: int = 10, param_space: dict | None = None):
 
 
 if __name__ == "__main__":
-    random_search(n_trials=10)
+    random_search(n_trials=15)
