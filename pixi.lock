@@ -3873,7 +3873,7 @@ packages:
 - pypi: ./
   name: sales-forecasting
   version: 0.1.0
-  sha256: dd82dad610eb5a02239226981db31c3f3a88af439390a7343fff9e696c8b31d8
+  sha256: 237a63e36dacf57c0015276cf1ef64715ae8b42e444cfed4908012afeba7996c
   requires_dist:
   - torch-geometric>=2.7.0
   - pyg-lib

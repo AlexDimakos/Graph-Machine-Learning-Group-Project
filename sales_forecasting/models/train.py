@@ -15,7 +15,12 @@ from sales_forecasting.data.dataset import (
     LSTMDataset,
     WindowedStaticGraphTemporalSignal,
 )
-from sales_forecasting.models.model import GATGCNLSTM, GCNLSTMBaseline, LSTMBaseline
+from sales_forecasting.models.model import (
+    GATGCNLSTM,
+    GCNGRUBaseline,
+    GCNLSTMBaseline,
+    LSTMBaseline,
+)
 from sales_forecasting.utils.experiments import start_run
 
 
@@ -342,6 +347,50 @@ def run_gcnlstm_training_pipeline(X_train, y_train, X_val, y_val, train_config):
     return model, history, train_dataset, val_dataset
 
 
+def run_gcngru_training_pipeline(X_train, y_train, X_val, y_val, train_config):
+    X_train, y_train, X_val, y_val, scaler_X_per_product, scaler_y_per_product = (
+        scale_per_product(X_train, y_train, X_val, y_val)
+    )
+
+    # Load correct edge_index
+    edge_index = np.load(config.PROCESSED_DATA_DIR / f"edges_{config.EDGE_TYPE}.npy")
+    train_dataset = WindowedStaticGraphTemporalSignal(
+        edge_index=edge_index,
+        edge_weight=np.ones(edge_index.shape[1]),
+        features=X_train,
+        targets=y_train,
+    )
+    val_dataset = WindowedStaticGraphTemporalSignal(
+        edge_index=edge_index,
+        edge_weight=np.ones(edge_index.shape[1]),
+        features=X_val,
+        targets=y_val,
+    )
+
+    input_size = X_train.shape[2]
+    model = GCNGRUBaseline(
+        input_size=input_size,
+        hidden_size=train_config.hidden_size,
+        K=train_config.K,
+    ).to(config.DEVICE)
+
+    model, history = train_model(
+        model,
+        train_dataset,
+        train_config=train_config,
+        val_dataset=val_dataset,
+        batch_size=train_config.batch_size,
+        num_epochs=train_config.epochs,
+        lr=train_config.lr,
+        eval_every=train_config.eval_every,
+        patience=train_config.patience,
+        save_path=train_config.save_path,
+        weight_decay=train_config.weight_decay,
+    )
+
+    return model, history, train_dataset, val_dataset
+
+
 def run_gatgcnlstm_training_pipeline(X_train, y_train, X_val, y_val, train_config):
     X_train, y_train, X_val, y_val, scaler_X_per_product, scaler_y_per_product = (
         scale_per_product(X_train, y_train, X_val, y_val)
@@ -458,6 +507,8 @@ def run_experiment(train_config: config.TrainingConfig):
         run_training_pipeline_fn = run_lstm_training_pipeline
     elif config.MODEL == "gcnlstm":
         run_training_pipeline_fn = run_gcnlstm_training_pipeline
+    elif config.MODEL == "gcngru":
+        run_training_pipeline_fn = run_gcngru_training_pipeline
     elif config.MODEL == "gatgcnlstm":
         run_training_pipeline_fn = run_gatgcnlstm_training_pipeline
     else:

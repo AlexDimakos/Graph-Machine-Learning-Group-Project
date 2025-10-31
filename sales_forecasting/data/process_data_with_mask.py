@@ -23,10 +23,11 @@ def main():
     )
 
     signals_path = RAW_DATA_DIR / Path("Temporal Data/Unit/")
+
     production = pd.read_csv(signals_path / Path("Production .csv"))
-    factory_issue = pd.read_csv(signals_path / Path("factory issue.csv"))
+    factory_issue = pd.read_csv(signals_path / Path("Factory Issue.csv"))
     delivery = pd.read_csv(signals_path / Path("Delivery To distributor.csv"))
-    sales_order = pd.read_csv(signals_path / Path("Sales order.csv"))
+    sales_order = pd.read_csv(signals_path / Path("Sales Order.csv"))
 
     production.drop(columns=["POP001L12P.1"], inplace=True)
     delivery.drop(columns=["POP001L12P.1"], inplace=True)
@@ -52,7 +53,7 @@ def main():
 
     # (a) Mean and std over time + features
     mean_per_node = X.mean(axis=(0, 2))
-    std_per_node  = X.std(axis=(0, 2))
+    std_per_node = X.std(axis=(0, 2))
 
     # (b) Coefficient of variation (normalized variability)
     cv_per_node = np.divide(std_per_node, np.abs(mean_per_node) + 1e-8)
@@ -60,12 +61,14 @@ def main():
     # (c) Zero ratio
     zero_ratio = (X == 0).mean(axis=(0, 2))
 
-    cv_thr = 0.01        # drop nodes with <1% relative variation
-    zero_thr = 0.6      # drop nodes that are ≥95% zeros
+    cv_thr = 0.01  # drop nodes with <1% relative variation
+    zero_thr = 0.6  # drop nodes that are ≥95% zeros
     mask = (cv_per_node > cv_thr) & (zero_ratio < zero_thr)
 
-    print(f"Mask contains {(~mask).sum()} of {len(mask)} nodes "f"({(~mask).sum()/len(mask):.1%})")
-    
+    print(
+        f"Mask contains {(~mask).sum()} of {len(mask)} nodes "
+        f"({(~mask).sum() / len(mask):.1%})"
+    )
 
     # Matching the features at a timestep with their label (the next timestep)
     y = X_sales_np[1:]

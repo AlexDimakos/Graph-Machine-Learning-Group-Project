@@ -16,8 +16,8 @@ CONFIG_PATH = Path(__file__)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# choose from ['lstm', 'gcnlstm', 'gatgcnlstm']
-MODEL = "gatgcnlstm"
+# choose from ['lstm', 'gcnlstm', 'gatgcnlstm', 'gcngru']
+MODEL = "gcngru"
 # choose from ['plant', 'group', 'subgroup', 'storage']
 EDGE_TYPE = "plant"
 
@@ -25,7 +25,7 @@ EDGE_TYPE = "plant"
 @dataclass
 class TrainingConfig:
     # Cross-validation folds
-    n_splits: int = 4
+    n_splits: int = 3
 
     # Model parameters
     window_size: int = 6
@@ -56,4 +56,4 @@ class MLFlowConfig:
     tracking_uri = f"file:{MLFLOW_DIR}"
     # choose from ['testing', MODEL]
     experiment_name = MODEL if MODEL == "lstm" else f"{MODEL}_{EDGE_TYPE}"
-    run_name = "Alex"
+    run_name = "alex_params_3_folds"

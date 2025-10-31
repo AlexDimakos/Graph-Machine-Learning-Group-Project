@@ -48,3 +48,4 @@ scikit-learn = ">=1.7.2,<2"
 train = { cmd = "python -m sales_forecasting.models.train" }
 experiments = { cmd = "python -m sales_forecasting.experiments" }
 process_data = { cmd = "python -m sales_forecasting.data.process_data" }
+process_data_mask = { cmd = "python -m sales_forecasting.data.process_data_with_mask" }
