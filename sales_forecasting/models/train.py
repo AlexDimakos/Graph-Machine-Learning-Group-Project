@@ -26,7 +26,7 @@ from sales_forecasting.models.model import (
 from sales_forecasting.utils.experiments import start_run
 
 
-def evaluate_model(model, dataset, batch_size=64, mask=None):
+def evaluate_model(model, dataset, batch_size=64, mask_nodes=True):
     """Evaluate model on either LSTMDataset (batched) or
     WindowedStaticGraphTemporalSignal (windowed GCN-LSTM).
 
@@ -40,8 +40,8 @@ def evaluate_model(model, dataset, batch_size=64, mask=None):
     all_preds, all_trues = [], []
     count = 0
 
-    if mask is not None:
-        mask = torch.tensor(mask, dtype=torch.bool).to(config.DEVICE)
+    if mask_nodes:
+        mask = np.load(config.PROCESSED_DATA_DIR / "mask.npy")
 
     is_lstm_dataset = isinstance(dataset, LSTMDataset)
     # Always use a DataLoader. For windowed datasets use batch_size=1.
@@ -51,18 +51,20 @@ def evaluate_model(model, dataset, batch_size=64, mask=None):
     with torch.no_grad():
         for batch in loader:
             if is_lstm_dataset:
-                mask_batch = mask[batch["node_id"]]
+                if mask_nodes:
+                    mask_batch = mask[batch["node_id"]]
 
                 x = batch["x"].to(config.DEVICE)
                 y_true = batch["y"].to(config.DEVICE)
 
                 y_pred = model(x)
 
-                y_pred = y_pred[mask_batch]
-                y_true = y_true[mask_batch]
+                if mask_nodes:
+                    y_pred = y_pred[mask_batch]
+                    y_true = y_true[mask_batch]
 
-                if y_true.numel() == 0:
-                    continue
+                    if y_true.numel() == 0:
+                        continue
 
                 loss = criterion(y_pred, y_true)
                 total_loss += loss.item() * x.size(0)
@@ -78,8 +80,9 @@ def evaluate_model(model, dataset, batch_size=64, mask=None):
 
                 y_pred, _ = model(x, edge_idx, edge_w)
 
-                y_pred = y_pred[mask]
-                y_true = y_true[mask]
+                if mask_nodes:
+                    y_pred = y_pred[mask]
+                    y_true = y_true[mask]
 
                 loss = criterion(y_pred, y_true)
                 total_loss += loss.item()
@@ -107,12 +110,14 @@ def train_model(
     patience=10,
     weight_decay=5e-4,
     save_path="best_model.pt",
+    mask_nodes=True,
 ):
-    mask = np.load(config.PROCESSED_DATA_DIR / "mask.npy")
-
     model.to(config.DEVICE)
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+    if mask_nodes:
+        mask = np.load(config.PROCESSED_DATA_DIR / "mask.npy")
 
     best_val_loss = np.inf
     patience_counter = 0
@@ -139,7 +144,8 @@ def train_model(
 
         for batch in train_loader:
             if is_lstm_dataset:
-                mask_batch = mask[batch["node_id"]]
+                if mask_nodes:
+                    mask_batch = mask[batch["node_id"]]
 
                 x = batch["x"].to(config.DEVICE)
                 y = batch["y"].to(config.DEVICE)
@@ -147,11 +153,12 @@ def train_model(
                 optimizer.zero_grad()
                 y_pred = model(x)
 
-                y_pred = y_pred[mask_batch]
-                y = y[mask_batch]
+                if mask_nodes:
+                    y_pred = y_pred[mask_batch]
+                    y = y[mask_batch]
 
-                if y.numel() == 0:
-                    continue
+                    if y.numel() == 0:
+                        continue
 
                 loss = criterion(y_pred, y)
                 loss.backward()
@@ -168,8 +175,9 @@ def train_model(
                 optimizer.zero_grad()
                 y_pred, _ = model(x, edge_idx, edge_w)
 
-                y_pred = y_pred[mask]
-                y = y[mask]
+                if mask_nodes:
+                    y_pred = y_pred[mask]
+                    y = y[mask]
 
                 loss = criterion(y_pred, y)
                 loss.backward()
@@ -191,7 +199,7 @@ def train_model(
         # Periodic evaluation
         if val_dataset is not None and epoch % eval_every == 0:
             val_loss, val_rmse, _, _ = evaluate_model(
-                model, val_dataset, train_config.batch_size, mask=mask
+                model, val_dataset, train_config.batch_size, mask_nodes=mask_nodes
             )
             history["val_loss"].append(val_loss)
             history["val_rmse"].append(val_rmse)
