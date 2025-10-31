@@ -17,7 +17,7 @@ CONFIG_PATH = Path(__file__)
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # choose from ['lstm', 'gcnlstm', 'gatgcnlstm', 'gru', 'gcngru', 'gatgcngru']
-MODEL = "gcnlstm"
+MODEL = "gcngru"
 # choose from ['plant', 'group', 'subgroup', 'storage']
 EDGE_TYPE = "plant"
 
@@ -48,12 +48,12 @@ class TrainingConfig:
 
 
 # MLFlow
-USE_MLFLOW = False
+USE_MLFLOW = True
 
 
 @dataclass
 class MLFlowConfig:
     tracking_uri = f"file:{MLFLOW_DIR}"
     # choose from ['testing', MODEL]
-    experiment_name = MODEL if MODEL == "lstm" else f"{MODEL}_{EDGE_TYPE}"
+    experiment_name = MODEL if MODEL in ["lstm", "gru"] else f"{MODEL}_{EDGE_TYPE}"
     run_name = "Final runs"
