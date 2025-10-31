@@ -27,7 +27,7 @@ def random_search(n_trials: int = 10, param_space: dict | None = None):
             "window_size": lambda: random.choice([3, 4, 6, 8]),
             "hidden_size": lambda: random.choice([4, 8, 12, 16]),
             "K": lambda: random.choice([1, 2]),
-            "weight_decay": lambda: 10 ** random.uniform(-6, -3),
+            "weight_decay": lambda: 10 ** random.uniform(-5, -3),
         }
 
     for i in range(n_trials):
