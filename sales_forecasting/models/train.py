@@ -19,7 +19,7 @@ from sales_forecasting.models.model import GATGCNLSTM, GCNLSTMBaseline, LSTMBase
 from sales_forecasting.utils.experiments import start_run
 
 
-def evaluate_model(model, dataset, batch_size=64):
+def evaluate_model(model, dataset, batch_size=64, mask=None):
     """Evaluate model on either LSTMDataset (batched) or
     WindowedStaticGraphTemporalSignal (windowed GCN-LSTM).
 
@@ -33,6 +33,9 @@ def evaluate_model(model, dataset, batch_size=64):
     all_preds, all_trues = [], []
     count = 0
 
+    if mask is not None:
+        mask = torch.tensor(mask, dtype=torch.bool).to(config.DEVICE)
+
     is_lstm_dataset = isinstance(dataset, LSTMDataset)
     # Always use a DataLoader. For windowed datasets use batch_size=1.
     loader_bs = batch_size if is_lstm_dataset else 1
@@ -41,10 +44,19 @@ def evaluate_model(model, dataset, batch_size=64):
     with torch.no_grad():
         for batch in loader:
             if is_lstm_dataset:
+                mask_batch = mask[batch["node_id"]]
+
                 x = batch["x"].to(config.DEVICE)
                 y_true = batch["y"].to(config.DEVICE)
 
                 y_pred = model(x)
+
+                y_pred = y_pred[mask_batch]
+                y_true = y_true[mask_batch]
+
+                if y_true.numel() == 0:
+                    continue
+
                 loss = criterion(y_pred, y_true)
                 total_loss += loss.item() * x.size(0)
                 count += x.size(0)
@@ -58,6 +70,10 @@ def evaluate_model(model, dataset, batch_size=64):
                 y_true = batch["y"].squeeze(0).to(config.DEVICE)
 
                 y_pred, _ = model(x, edge_idx, edge_w)
+
+                y_pred = y_pred[mask]
+                y_true = y_true[mask]
+
                 loss = criterion(y_pred, y_true)
                 total_loss += loss.item()
                 count += 1
@@ -82,11 +98,14 @@ def train_model(
     lr=0.001,
     eval_every=5,
     patience=10,
+    weight_decay=5e-4,
     save_path="best_model.pt",
 ):
+    mask = np.load(config.PROCESSED_DATA_DIR / "mask.npy")
+
     model.to(config.DEVICE)
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     best_val_loss = np.inf
     patience_counter = 0
@@ -113,11 +132,20 @@ def train_model(
 
         for batch in train_loader:
             if is_lstm_dataset:
+                mask_batch = mask[batch["node_id"]]
+
                 x = batch["x"].to(config.DEVICE)
                 y = batch["y"].to(config.DEVICE)
 
                 optimizer.zero_grad()
                 y_pred = model(x)
+
+                y_pred = y_pred[mask_batch]
+                y = y[mask_batch]
+
+                if y.numel() == 0:
+                    continue
+
                 loss = criterion(y_pred, y)
                 loss.backward()
                 optimizer.step()
@@ -132,6 +160,10 @@ def train_model(
 
                 optimizer.zero_grad()
                 y_pred, _ = model(x, edge_idx, edge_w)
+
+                y_pred = y_pred[mask]
+                y = y[mask]
+
                 loss = criterion(y_pred, y)
                 loss.backward()
                 optimizer.step()
@@ -152,7 +184,7 @@ def train_model(
         # Periodic evaluation
         if val_dataset is not None and epoch % eval_every == 0:
             val_loss, val_rmse, _, _ = evaluate_model(
-                model, val_dataset, train_config.batch_size
+                model, val_dataset, train_config.batch_size, mask=mask
             )
             history["val_loss"].append(val_loss)
             history["val_rmse"].append(val_rmse)
@@ -242,7 +274,12 @@ def run_lstm_training_pipeline(X_train, y_train, X_val, y_val, train_config):
     val_dataset = LSTMDataset(X_val, y_val, window_size=train_config.window_size)
 
     input_size = X_train.shape[2]  # number of features (F)
-    model = LSTMBaseline(input_size, train_config.hidden_size).to(config.DEVICE)
+    model = LSTMBaseline(
+        input_size,
+        train_config.hidden_size,
+        num_layers=train_config.num_layers,
+        dropout=train_config.dropout,
+    ).to(config.DEVICE)
 
     model, history = train_model(
         model,
@@ -255,6 +292,7 @@ def run_lstm_training_pipeline(X_train, y_train, X_val, y_val, train_config):
         eval_every=train_config.eval_every,
         patience=train_config.patience,
         save_path=train_config.save_path,
+        weight_decay=train_config.weight_decay,
     )
 
     return model, history, train_dataset, val_dataset
@@ -298,6 +336,7 @@ def run_gcnlstm_training_pipeline(X_train, y_train, X_val, y_val, train_config):
         eval_every=train_config.eval_every,
         patience=train_config.patience,
         save_path=train_config.save_path,
+        weight_decay=train_config.weight_decay,
     )
 
     return model, history, train_dataset, val_dataset
@@ -341,6 +380,7 @@ def run_gatgcnlstm_training_pipeline(X_train, y_train, X_val, y_val, train_confi
         eval_every=train_config.eval_every,
         patience=train_config.patience,
         save_path=train_config.save_path,
+        weight_decay=train_config.weight_decay,
     )
 
     return model, history, train_dataset, val_dataset
@@ -408,7 +448,7 @@ def cross_validation_training(X, y, run_training_pipeline_fn, train_config):
     print(f"Mean best validation rmse: {mean_rmse:.4f} ± {std_rmse:.4f}")
 
 
-def run_experiment(train_config):
+def run_experiment(train_config: config.TrainingConfig):
     X, y = (
         np.load(config.PROCESSED_DATA_DIR / "X.npy"),
         np.load(config.PROCESSED_DATA_DIR / "y.npy"),

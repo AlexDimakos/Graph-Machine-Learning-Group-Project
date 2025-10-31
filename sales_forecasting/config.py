@@ -15,26 +15,30 @@ MLFLOW_DIR = PROJECT_ROOT / "mlruns"
 CONFIG_PATH = Path(__file__)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 # choose from ['lstm', 'gcnlstm', 'gatgcnlstm']
 MODEL = "gatgcnlstm"
-# choose from['plant', 'group', 'subgroup', 'storage']
+# choose from ['plant', 'group', 'subgroup', 'storage']
 EDGE_TYPE = "plant"
 
 
 @dataclass
 class TrainingConfig:
     # Cross-validation folds
-    n_splits: int = 5
+    n_splits: int = 4
 
     # Model parameters
-    window_size: int = 10
-    hidden_size: int = 16
-    K: int = 1
+    window_size: int = 6
+    hidden_size: int = 8
+    K: int = 2
+    dropout: float = 0.25
+    num_layers: int = 2
 
     # Training loop parameters
-    batch_size: int = 16
+    batch_size: int = 8
     epochs: int = 100
-    lr: float = 0.001
+    lr: float = 0.002
+    weight_decay: float = 0.001
 
     # Evaluation parameters
     eval_every: int = 1
@@ -51,6 +55,5 @@ USE_MLFLOW = True
 class MLFlowConfig:
     tracking_uri = f"file:{MLFLOW_DIR}"
     # choose from ['testing', MODEL]
-    experiment_name = MODEL
-    # run_name = f"ws-{TrainingConfig.window_size}_lr-{TrainingConfig.lr}_hs{TrainingConfig.hidden_size}"
-    run_name = "Initial run"
+    experiment_name = MODEL if MODEL == "lstm" else f"{MODEL}_{EDGE_TYPE}"
+    run_name = "Alex"

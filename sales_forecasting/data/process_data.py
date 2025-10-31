@@ -56,7 +56,7 @@ def main():
         zero_ratios[prod] = zr
 
     cv_thr = 0.01  # drop nodes with <1% relative variation
-    zero_thr = 0.6  # drop nodes that are >=60% zeros
+    zero_thr = 0.85  # drop nodes that are >=60% zeros
 
     keep_products = [
         prod

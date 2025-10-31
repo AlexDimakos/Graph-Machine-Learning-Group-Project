@@ -4,9 +4,11 @@ from torch_geometric_temporal.nn.recurrent import GConvLSTM, GConvGRU
 
 
 class LSTMBaseline(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers=1):
+    def __init__(self, input_size, hidden_size, num_layers=1, dropout=0):
         super().__init__()
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+        self.lstm = nn.LSTM(
+            input_size, hidden_size, num_layers, dropout=dropout, batch_first=True
+        )
         self.fc = nn.Linear(hidden_size, 1)  # predict scalar target
 
     def forward(self, x):
