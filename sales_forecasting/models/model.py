@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch_geometric.nn
-from torch_geometric_temporal.nn.recurrent import GConvLSTM
+from torch_geometric_temporal.nn.recurrent import GConvLSTM, GConvGRU
 
 
 class LSTMBaseline(nn.Module):
@@ -71,3 +71,18 @@ class GATGCNLSTM(nn.Module):
             )
         out = self.linear(h)
         return out.squeeze(-1), (h, c)
+
+
+class GCNGRUBaseline(nn.Module):
+    def __init__(self, input_size, hidden_size, K=1):
+        super().__init__()
+        self.gconvgru = GConvGRU(in_channels=input_size, out_channels=hidden_size, K=K)
+        self.linear = nn.Linear(hidden_size, 1)
+
+    def forward(self, x, edge_index, edge_weight, h=None):
+        # x: [window_size, N, F]
+        window_size, N, F = x.shape
+        for t in range(window_size):
+            h = self.gconvgru(x[t, :, :], edge_index[t, :, :], edge_weight[t, :], h)
+        out = self.linear(h)
+        return out.squeeze(-1), h
