@@ -16,9 +16,11 @@ from sales_forecasting.data.dataset import (
     WindowedStaticGraphTemporalSignal,
 )
 from sales_forecasting.models.model import (
+    GATGCNGRU,
     GATGCNLSTM,
     GCNGRUBaseline,
     GCNLSTMBaseline,
+    GRUBaseline,
     LSTMBaseline,
 )
 from sales_forecasting.utils.experiments import start_run
@@ -303,6 +305,39 @@ def run_lstm_training_pipeline(X_train, y_train, X_val, y_val, train_config):
     return model, history, train_dataset, val_dataset
 
 
+def run_gru_training_pipeline(X_train, y_train, X_val, y_val, train_config):
+    X_train, y_train, X_val, y_val, scaler_X_per_product, scaler_y_per_product = (
+        scale_per_product(X_train, y_train, X_val, y_val)
+    )
+
+    train_dataset = LSTMDataset(X_train, y_train, window_size=train_config.window_size)
+    val_dataset = LSTMDataset(X_val, y_val, window_size=train_config.window_size)
+
+    input_size = X_train.shape[2]  # number of features (F)
+    model = GRUBaseline(
+        input_size,
+        train_config.hidden_size,
+        num_layers=train_config.num_layers,
+        dropout=train_config.dropout,
+    ).to(config.DEVICE)
+
+    model, history = train_model(
+        model,
+        train_dataset,
+        train_config=train_config,
+        val_dataset=val_dataset,
+        batch_size=train_config.batch_size,
+        num_epochs=train_config.epochs,
+        lr=train_config.lr,
+        eval_every=train_config.eval_every,
+        patience=train_config.patience,
+        save_path=train_config.save_path,
+        weight_decay=train_config.weight_decay,
+    )
+
+    return model, history, train_dataset, val_dataset
+
+
 def run_gcnlstm_training_pipeline(X_train, y_train, X_val, y_val, train_config):
     X_train, y_train, X_val, y_val, scaler_X_per_product, scaler_y_per_product = (
         scale_per_product(X_train, y_train, X_val, y_val)
@@ -435,6 +470,50 @@ def run_gatgcnlstm_training_pipeline(X_train, y_train, X_val, y_val, train_confi
     return model, history, train_dataset, val_dataset
 
 
+def run_gatgcngru_training_pipeline(X_train, y_train, X_val, y_val, train_config):
+    X_train, y_train, X_val, y_val, scaler_X_per_product, scaler_y_per_product = (
+        scale_per_product(X_train, y_train, X_val, y_val)
+    )
+
+    # Load correct edge_index
+    edge_index = np.load(config.PROCESSED_DATA_DIR / f"edges_{config.EDGE_TYPE}.npy")
+    train_dataset = WindowedStaticGraphTemporalSignal(
+        edge_index=edge_index,
+        edge_weight=np.ones(edge_index.shape[1]),
+        features=X_train,
+        targets=y_train,
+    )
+    val_dataset = WindowedStaticGraphTemporalSignal(
+        edge_index=edge_index,
+        edge_weight=np.ones(edge_index.shape[1]),
+        features=X_val,
+        targets=y_val,
+    )
+
+    input_size = X_train.shape[2]
+    model = GATGCNGRU(
+        input_size=input_size,
+        hidden_size=train_config.hidden_size,
+        K=train_config.K,
+    ).to(config.DEVICE)
+
+    model, history = train_model(
+        model,
+        train_dataset,
+        train_config=train_config,
+        val_dataset=val_dataset,
+        batch_size=train_config.batch_size,
+        num_epochs=train_config.epochs,
+        lr=train_config.lr,
+        eval_every=train_config.eval_every,
+        patience=train_config.patience,
+        save_path=train_config.save_path,
+        weight_decay=train_config.weight_decay,
+    )
+
+    return model, history, train_dataset, val_dataset
+
+
 def cross_validation_training(X, y, run_training_pipeline_fn, train_config):
     tscv = TimeSeriesSplit(n_splits=train_config.n_splits)
     """
@@ -505,12 +584,16 @@ def run_experiment(train_config: config.TrainingConfig):
 
     if config.MODEL == "lstm":
         run_training_pipeline_fn = run_lstm_training_pipeline
+    elif config.MODEL == "gru":
+        run_training_pipeline_fn = run_gru_training_pipeline
     elif config.MODEL == "gcnlstm":
         run_training_pipeline_fn = run_gcnlstm_training_pipeline
     elif config.MODEL == "gcngru":
         run_training_pipeline_fn = run_gcngru_training_pipeline
     elif config.MODEL == "gatgcnlstm":
         run_training_pipeline_fn = run_gatgcnlstm_training_pipeline
+    elif config.MODEL == "gatgcngru":
+        run_training_pipeline_fn = run_gatgcngru_training_pipeline
     else:
         raise Exception(f"Unsupported model: {config.MODEL}")
 

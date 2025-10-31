@@ -16,8 +16,8 @@ CONFIG_PATH = Path(__file__)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# choose from ['lstm', 'gcnlstm', 'gatgcnlstm', 'gcngru']
-MODEL = "gatgcnlstm"
+# choose from ['lstm', 'gcnlstm', 'gatgcnlstm', 'gru', 'gcngru', 'gatgcngru']
+MODEL = "gcngru"
 # choose from ['plant', 'group', 'subgroup', 'storage']
 EDGE_TYPE = "plant"
 
