@@ -25,14 +25,14 @@ EDGE_TYPE = "plant"
 @dataclass
 class TrainingConfig:
     # Cross-validation folds
-    n_splits: int = 4
+    n_splits: int = 3
 
     # Model parameters
     window_size: int = 6
     hidden_size: int = 8
     K: int = 2
-    dropout: float = 0
-    num_layers: int = 1
+    dropout: float = 0.3
+    num_layers: int = 2
 
     # Training loop parameters
     batch_size: int = 8
@@ -56,4 +56,4 @@ class MLFlowConfig:
     tracking_uri = f"file:{MLFLOW_DIR}"
     # choose from ['testing', MODEL]
     experiment_name = MODEL if MODEL in ["lstm", "gru"] else f"{MODEL}_{EDGE_TYPE}"
-    run_name = "Final runs"
+    run_name = "Fixed windowed dataset"

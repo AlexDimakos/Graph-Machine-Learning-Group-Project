@@ -20,9 +20,10 @@ class LSTMBaseline(nn.Module):
 
 
 class GCNLSTMBaseline(nn.Module):
-    def __init__(self, input_size, hidden_size, K=1):
+    def __init__(self, input_size, hidden_size, K=1, dropout=0):
         super().__init__()
         self.gcnlstm = GConvLSTM(in_channels=input_size, out_channels=hidden_size, K=K)
+        self.dropout = nn.Dropout(dropout)
         self.linear = nn.Linear(hidden_size, 1)
 
     def forward(self, x, edge_index, edge_weight, h=None, c=None):
@@ -38,18 +39,21 @@ class GCNLSTMBaseline(nn.Module):
             h, c = self.gcnlstm(
                 x[t, :, :], edge_index[t, :, :], edge_weight[t, :], h, c
             )
+            h = self.dropout(h)
+
         out = self.linear(h)
         return out.squeeze(-1), (h, c)
 
 
 class GATGCNLSTM(nn.Module):
-    def __init__(self, input_size, hidden_size, K=1):
+    def __init__(self, input_size, hidden_size, K=1, dropout=0):
         super().__init__()
         self.gat = torch_geometric.nn.conv.GATv2Conv(
             in_channels=input_size,
             out_channels=input_size,
         )
         self.gcnlstm = GConvLSTM(in_channels=input_size, out_channels=hidden_size, K=K)
+        self.dropout = nn.Dropout(dropout)
         self.linear = nn.Linear(hidden_size, 1)
 
     def forward(self, x, edge_index, edge_weight, h=None, c=None):
@@ -71,14 +75,18 @@ class GATGCNLSTM(nn.Module):
             h, c = self.gcnlstm(
                 x[t, :, :], e_index, attention_weights.squeeze(-1), h, c
             )
+            h = self.dropout(h)
+
         out = self.linear(h)
         return out.squeeze(-1), (h, c)
 
 
 class GRUBaseline(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers=1):
+    def __init__(self, input_size, hidden_size, num_layers=1, dropout=0):
         super().__init__()
-        self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True)
+        self.gru = nn.GRU(
+            input_size, hidden_size, num_layers, dropout=dropout, batch_first=True
+        )
         self.fc = nn.Linear(hidden_size, 1)  # predict scalar target
 
     def forward(self, x):
@@ -90,9 +98,10 @@ class GRUBaseline(nn.Module):
 
 
 class GCNGRUBaseline(nn.Module):
-    def __init__(self, input_size, hidden_size, K=1):
+    def __init__(self, input_size, hidden_size, K=1, dropout=0):
         super().__init__()
         self.gconvgru = GConvGRU(in_channels=input_size, out_channels=hidden_size, K=K)
+        self.dropout = nn.Dropout(dropout)
         self.linear = nn.Linear(hidden_size, 1)
 
     def forward(self, x, edge_index, edge_weight, h=None):
@@ -100,18 +109,20 @@ class GCNGRUBaseline(nn.Module):
         window_size, N, F = x.shape
         for t in range(window_size):
             h = self.gconvgru(x[t, :, :], edge_index[t, :, :], edge_weight[t, :], h)
+            h = self.dropout(h)
         out = self.linear(h)
         return out.squeeze(-1), h
 
 
 class GATGCNGRU(nn.Module):
-    def __init__(self, input_size, hidden_size, K=1):
+    def __init__(self, input_size, hidden_size, K=1, dropout=0):
         super().__init__()
         self.gat = torch_geometric.nn.conv.GATv2Conv(
             in_channels=input_size,
             out_channels=input_size,
         )
         self.gconvgru = GConvGRU(in_channels=input_size, out_channels=hidden_size, K=K)
+        self.dropout = nn.Dropout(dropout)
         self.linear = nn.Linear(hidden_size, 1)
 
     def forward(self, x, edge_index, edge_weight, h=None):
@@ -124,5 +135,7 @@ class GATGCNGRU(nn.Module):
                 return_attention_weights=True,
             )
             h = self.gconvgru(x[t, :, :], e_index, attention_weights.squeeze(-1), h)
+            h = self.dropout(h)
+
         out = self.linear(h)
         return out.squeeze(-1), h

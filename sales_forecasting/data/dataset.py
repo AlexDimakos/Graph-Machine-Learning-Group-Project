@@ -49,11 +49,11 @@ class WindowedStaticGraphTemporalSignal(StaticGraphTemporalSignal):
         self.window_size = window_size
 
     def __len__(self):
-        return math.ceil(len(self.features) / self.window_size)
+        return len(self.features) - self.window_size + 1
 
     def __getitem__(self, idx):
         num_snapshots = len(self.features)
-        window_start = idx * self.window_size
+        window_start = idx
         window_end = min(window_start + self.window_size, num_snapshots)
         actual_window_size = window_end - window_start
 

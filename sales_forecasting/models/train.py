@@ -186,6 +186,7 @@ def train_model(
                 total_loss += loss.item()
                 count += 1
 
+        # print(f"Finished training for epoch: {epoch} on {count} batches")
         avg_train_loss = total_loss / count
 
         history["train_loss"].append(avg_train_loss)
@@ -371,6 +372,7 @@ def run_gcnlstm_training_pipeline(X_train, y_train, X_val, y_val, train_config):
         input_size=input_size,
         hidden_size=train_config.hidden_size,
         K=train_config.K,
+        dropout=train_config.dropout,
     ).to(config.DEVICE)
 
     model, history = train_model(
@@ -415,6 +417,7 @@ def run_gcngru_training_pipeline(X_train, y_train, X_val, y_val, train_config):
         input_size=input_size,
         hidden_size=train_config.hidden_size,
         K=train_config.K,
+        dropout=train_config.dropout,
     ).to(config.DEVICE)
 
     model, history = train_model(
@@ -459,6 +462,7 @@ def run_gatgcnlstm_training_pipeline(X_train, y_train, X_val, y_val, train_confi
         input_size=input_size,
         hidden_size=train_config.hidden_size,
         K=train_config.K,
+        dropout=train_config.dropout,
     ).to(config.DEVICE)
 
     model, history = train_model(
@@ -503,6 +507,7 @@ def run_gatgcngru_training_pipeline(X_train, y_train, X_val, y_val, train_config
         input_size=input_size,
         hidden_size=train_config.hidden_size,
         K=train_config.K,
+        dropout=train_config.dropout,
     ).to(config.DEVICE)
 
     model, history = train_model(

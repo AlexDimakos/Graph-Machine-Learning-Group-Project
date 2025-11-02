@@ -23,11 +23,13 @@ def random_search(n_trials: int = 10, param_space: dict | None = None):
     """
     if param_space is None:
         param_space = {
-            "lr": lambda: 10 ** random.uniform(-3, -1),
-            "window_size": lambda: random.choice([3, 4, 6, 8]),
-            "hidden_size": lambda: random.choice([4, 8, 12, 16]),
+            "lr": lambda: 10 ** random.uniform(-3, -1.5),
+            "window_size": lambda: random.choice([5, 8, 10]),
+            "batch_size": lambda: random.choice([8, 16, 32]),
+            "hidden_size": lambda: random.choice([8, 16, 24, 32]),
             "K": lambda: random.choice([1, 2]),
             "weight_decay": lambda: 10 ** random.uniform(-5, -3),
+            "dropout": lambda: random.uniform(0, 0.3),
         }
 
     for i in range(n_trials):
@@ -45,9 +47,11 @@ def random_search(n_trials: int = 10, param_space: dict | None = None):
             window_size=sampled.get("window_size", base.window_size),
             hidden_size=sampled.get("hidden_size", base.hidden_size),
             K=sampled.get("K", base.K),
+            weight_decay=sampled.get("weight_decay", base.weight_decay),
+            dropout=sampled.get("dropout", base.dropout),
         )
 
-        run_name = f"initial_random_search_{i}"
+        run_name = f"{config.MLFlowConfig.run_name}_{i}"
         with start_run(run_name=run_name):
             mlflow.log_params(asdict(tc))
             print(f"Starting run '{run_name}' with hyperparameters:")
@@ -61,4 +65,4 @@ def random_search(n_trials: int = 10, param_space: dict | None = None):
 
 
 if __name__ == "__main__":
-    random_search(n_trials=15)
+    random_search(n_trials=10)
