@@ -24,22 +24,35 @@ def plot_avg_spectral_energy(lam, X_hat):
     plt.tight_layout(); plt.show()
     
 
-def plot_heatmap_spectral_energy(lam, X_hat):
-    A = np.abs(X_hat)                   # (T, N)
-    idx = np.argsort(lam)               # sort by eigenvalue
+def plot_heatmap_spectral_energy(lam, X_hat, precision=2):
+    # sort by eigenvalue
+    idx = np.argsort(lam)
     lam_sorted = lam[idx]
-    A_sorted = A[:, idx].T              # (N, T)  
+    X_sorted = np.abs(X_hat[:, idx]).T  # (N, T)
 
-    plt.figure(figsize=(10,6))
-    plt.imshow(A_sorted, aspect='auto', origin='lower', cmap='viridis')
-    plt.colorbar(label='|x̂ₖ(t)|')
+    # round eigenvalues to group similar ones
+    lam_rounded = np.round(lam_sorted, decimals=precision)
 
-    # one row per eigenmode; label rows by λ_k
-    N = len(lam_sorted)
-    plt.yticks(np.arange(N), [f'{l:.2f}' for l in lam_sorted])
+    # find unique groups
+    unique_vals = np.unique(lam_rounded)
+
+    # average energy per group
+    grouped_data = []
+    for val in unique_vals:
+        mask = lam_rounded == val
+        grouped_data.append(X_sorted[mask].mean(axis=0))  # average across rows with same eigenvalue
+
+    grouped_data = np.array(grouped_data)  # (num_groups, T)
+
+    # plotting
+    plt.figure(plt.figure(figsize=(10,4)))
+    plt.imshow(grouped_data, aspect='auto', origin='lower', cmap='viridis')
+    plt.colorbar(label='x̂ₖ(t)')
+    plt.yticks(np.arange(len(unique_vals)), [f'{v:.{precision}f}' for v in unique_vals])
     plt.xlabel('Time step t')
-    plt.ylabel('Graph frequency λₖ')
+    plt.ylabel('Graph frequency')
     plt.title('Graph Spectrogram')
     plt.tight_layout()
     plt.show()
+
 
